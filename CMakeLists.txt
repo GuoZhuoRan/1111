@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.16)
 project(OGHR_mujoco)
 
-# set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Release)
 add_compile_options(-std=c++17)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -78,8 +78,8 @@ set(SOURCES ${C_SOURCES} ${CPP_SOURCES} ${HEADER_FILES})
 add_executable(floatControl_new_1 Demo/floatControl_new_1.cpp ${SOURCES})
 
 target_link_libraries(floatControl_new_1 ${MuJoCo_Libraries} glfw Eigen3::Eigen pinocchio::pinocchio
-JsonCpp::JsonCpp        
-# jsoncpp
+# JsonCpp::JsonCpp        
+jsoncpp
          quill::quill fmt::fmt qpOASES )
 
 # 链接动态库

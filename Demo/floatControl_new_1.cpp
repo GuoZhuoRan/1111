@@ -1,3 +1,4 @@
+      
 #include <mujoco/mujoco.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -165,8 +166,22 @@ void receiveData(int sockfd)
         }
         left_bet = (double)receivedData[6];
         left_finger = (double)receivedData[7];
-        right_bet = (double)receivedData[14];
+        right_bet = -(double)receivedData[14];
         right_finger = (double)receivedData[15];
+        // std::cout<<"left finger is"<<left_finger<<std::endl;
+        std::cout << "left_arm:   ";
+        for (size_t i = 0; i < 6; i++)
+        {
+            std::cout << left_p_a[i] << "   ";
+        }
+        std::cout << std::endl;
+
+        std::cout << "right_arm:   ";
+        for (size_t i = 0; i < 6; i++)
+        {
+            std::cout << right_p_a[i] << "   ";
+        }
+        std::cout << std::endl;
     }
 }
 
@@ -202,6 +217,7 @@ int main(int argc, const char **argv)
 
     // 创建并启动接收数据线程
     std::thread receiverThread(receiveData, sockfd);
+    std::cout << "start receiving!" << std::endl;
 
     UIctr uiController(mj_model, mj_data);                                   // UI control for Mujoco
     MJ_Interface mj_interface(mj_model, mj_data);                            // data interface for Mujoco
@@ -289,6 +305,49 @@ int main(int argc, const char **argv)
             Eigen::VectorXd pos_eul_bet(7);
             Eigen::VectorXd motors_pos(7);
 
+
+            // static double t = 0;
+            // t += 0.01;
+            // mj_data->mocap_pos[0] = 0.5 * sin(t); // x-coordinate
+            // mj_data->mocap_pos[1] = 0.5 * cos(t); // y-coordinate
+            // mj_data->mocap_pos[2] = 1.0;          // z-coordinate (constant)
+
+            // mj_data->mocap_pos[0] = 0.5 * sin(t);  // x-coordinate of the first ball
+            // mj_data->mocap_pos[1] = 0.5 * cos(t);  // y-coordinate of the first ball
+            // mj_data->mocap_pos[2] = 1.0;           // z-coordinate of the first ball (constant)
+
+            // // Update the position of the second red ball
+            // mj_data->mocap_pos[3] = 0.5 * cos(t);  // x-coordinate of the second ball
+            // mj_data->mocap_pos[4] = 0.5 * sin(t);  // y-coordinate of the second ball
+            // mj_data->mocap_pos[5] = 1.0;    
+
+            // int ball_2_body_id = 0;
+
+
+            // ball_2_body_id = mj_name2id(mj_model, mjOBJ_BODY, "red_ball1");
+            // std::cout << "ball_2_body_id  ::" << ball_2_body_id << std::endl;
+
+            // int mocap_id = mj_model->body_mocapid[ball_2_body_id];
+            // if (mocap_id == -1) {
+            //     std::cerr << "Body red_ball_1 is not a mocap body" << std::endl;
+            //     return 1;
+            // }
+
+            // double offset_x = 0.5 * cos(t);
+            // double offset_y = 0.5 * sin(t);
+            // 0.004 -0.1616 0.3922+1.2
+            // right_p_a
+            mj_data->mocap_pos[0 * 3 + 0] =  0+0.004+-right_p_a[4]/1000;
+            mj_data->mocap_pos[0 * 3 + 1] =  0+-0.1616-right_p_a[5]/1000;
+            mj_data->mocap_pos[0 * 3 + 2] = 0.3922+1.2 + right_p_a[3]/1000 ;
+
+
+            mj_data->mocap_pos[1 * 3 + 0] =  0+0.004+left_p_a[4]/1000;
+            mj_data->mocap_pos[1 * 3 + 1] =  0+0.1616+left_p_a[5]/1000;
+            mj_data->mocap_pos[1 * 3 + 2] = 0.3922+1.2 + left_p_a[3]/1000 ;
+
+            // std::cout<<right_p_a[3]<<","<<right_p_a[4]<<","<<right_p_a[5]<<std::endl;
+
             mj_step(mj_model, mj_data);
 
             simTime = mj_data->time;
@@ -314,10 +373,6 @@ int main(int argc, const char **argv)
             }
             else
             {
-                // for (size_t i = 0; i < 7; i++)
-                // {
-                //     left_angles[i] = left_angles_tested[i];
-                // }
                 std::cout << "left error ::" << simTime << " " << left_angles_tested[7] << std::endl;
             }
 
@@ -459,3 +514,5 @@ int main(int argc, const char **argv)
 
     return 0;
 }
+
+    
