@@ -18,7 +18,7 @@
   <material name="block" texture="block" reflectance="0"  />
 </asset>
 
-<worldbody>
+<!-- <worldbody>
 
           <body name="red_ball" pos="0 0 1" mocap="true">
             <geom type="sphere" size="0.05" rgba="1 0 0 1" contype="0" conaffinity="0"/>
@@ -29,7 +29,7 @@
           </body>
 
 
-</worldbody>
+</worldbody> -->
 
 <worldbody>
 

@@ -1,4 +1,3 @@
-      
 #include <mujoco/mujoco.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -19,6 +18,7 @@
 #include "DataLogger.h"
 #include <chrono>
 #include "../ik_7dof_F2O_OLR3/ik_7dof_F2O_OLR3.c"
+#include "handCtrl.h"
 
 // MuJoCo load and compile model
 char error[1000] = "Could not load binary model";
@@ -116,11 +116,14 @@ double right_p_a[6] = {1.5708, 1.5708, 0.0, 0.0, -500, 0.0};
 double left_finger = 1.0;
 double right_finger = 0.0;
 
+float* hand_qpos=new float[24];
+
 // 接收数据的函数
 void receiveData(int sockfd)
 {
 
     receivedData.clear();
+    receivedData=std::vector<float>(16+24);
     struct sockaddr_in cliaddr;
     char buffer[BUFFER_SIZE];
 
@@ -141,22 +144,41 @@ void receiveData(int sockfd)
             std::cerr << "接收到的数据长度不是浮点数的整数倍\n";
             continue;
         }
+        
+        // old version
+        if (n==16*4){
+             // Copy the bytes into the vector
+            std::memcpy(receivedData.data(), buffer, receivedData.size() * sizeof(float));
 
-        for (int i = 0; i < n; i += 4)
-        {
-            if (receivedData.size() >= 16)
-            {
-                // 如果已有16个数据，删除第一个以保持数量为16
-                receivedData.erase(receivedData.begin());
-            }
+        }
 
-            uint32_t byteRepresentation = (static_cast<uint32_t>(static_cast<unsigned char>(buffer[i])) << 24) |
-                                          (static_cast<uint32_t>(static_cast<unsigned char>(buffer[i + 1])) << 16) |
-                                          (static_cast<uint32_t>(static_cast<unsigned char>(buffer[i + 2])) << 8) |
-                                          static_cast<uint32_t>(static_cast<unsigned char>(buffer[i + 3]));
-            float value;
-            memcpy(&value, &byteRepresentation, sizeof(float));
-            receivedData.push_back(value);
+        // new version add hand joints
+        if (n==(16+24)*4){
+             // Copy the bytes into the vector
+            std::memcpy(receivedData.data(), buffer, receivedData.size() * sizeof(float));
+
+        }
+
+
+    //     // for (int i = 0; i < n; i += 4)
+    //     // {
+    //     //     if (receivedData.size() >= 16)
+    //     //     {
+    //     //         // 如果已有16个数据，删除第一个以保持数量为16
+    //     //         receivedData.erase(receivedData.begin());
+    //     //     }
+
+    //     //     uint32_t byteRepresentation = (static_cast<uint32_t>(static_cast<unsigned char>(buffer[i])) << 24) |
+    //     //                                   (static_cast<uint32_t>(static_cast<unsigned char>(buffer[i + 1])) << 16) |
+    //     //                                   (static_cast<uint32_t>(static_cast<unsigned char>(buffer[i + 2])) << 8) |
+    //     //                                   static_cast<uint32_t>(static_cast<unsigned char>(buffer[i + 3]));
+    //     //     float value;
+    //     //     memcpy(&value, &byteRepresentation, sizeof(float));
+    //     //     receivedData.push_back(value);
+    //     // }
+
+        for (int i=0;i<24;i++){
+            hand_qpos[i]= receivedData[i+16];
         }
 
         for (size_t i = 0; i < 6; i++)
@@ -189,6 +211,10 @@ void receiveData(int sockfd)
 // main function
 int main(int argc, const char **argv)
 {
+    // init
+    for(int i=0;i<24;i++){
+        hand_qpos[i]=0;
+    }
 
     int sockfd;
     struct sockaddr_in servaddr;
@@ -219,11 +245,18 @@ int main(int argc, const char **argv)
     std::thread receiverThread(receiveData, sockfd);
     std::cout << "start receiving!" << std::endl;
 
-    UIctr uiController(mj_model, mj_data);                                   // UI control for Mujoco
-    MJ_Interface mj_interface(mj_model, mj_data);                            // data interface for Mujoco
+    UIctr uiController(mj_model, mj_data);  
+                                     // UI control for Mujoco
+    MJ_Interface mj_interface(mj_model, mj_data);
+                                // data interface for Mujoco
+    // Pin_KinDyn kinDynSolver("../Models/asset/AzureDragon.urdf");
     Pin_KinDyn kinDynSolver("../Models/AzureDragon.urdf");                   // kinematics and dynamics solver
+                       // kinematics and dynamics solver
+    
     DataBus RobotState(kinDynSolver.model_nv + 4);                           // data bus
-    PVT_Ctr pvtCtr(mj_model->opt.timestep, "../Common/JointCtrConfig.json"); // PVT joint control
+    PVT_Ctr pvtCtr(mj_model->opt.timestep, "../Common/JointCtrConfig.json");
+     // PVT joint control
+
     DataLogger logger("../RecordedData/DataLogger.log");                     // data logger
 
     std::vector<double> left_angles(7, 0.0);
@@ -236,6 +269,7 @@ int main(int argc, const char **argv)
     RobotState.width_hips = 0.5;
     // mju_copy(mj_data->qpos, mj_model->key_qpos, mj_model->nq*1); // set ini pos in Mujoco
     int model_nv = kinDynSolver.model_nv;
+    std::cout<<"i m here"<<std::endl;
 
     // ini position and posture for foot-end and hand
     std::vector<double> motors_pos_des(model_nv - 6 + 4, 0);
@@ -259,7 +293,9 @@ int main(int argc, const char **argv)
     Eigen::Matrix3d hd_r_rot_des = eul2Rot(hd_r_eul_L_des(0), hd_r_eul_L_des(1), hd_r_eul_L_des(2));
 
     auto resLeg = kinDynSolver.computeInK_Leg(fe_l_rot_des, fe_l_pos_L_des, fe_r_rot_des, fe_r_pos_L_des);
+   
     auto resHand = kinDynSolver.computeInK_Hand(hd_l_rot_des, hd_l_pos_L_des, hd_r_rot_des, hd_r_pos_L_des);
+
 
     // register variable name for data logger
     logger.addIterm("simTime", 1);
@@ -306,8 +342,8 @@ int main(int argc, const char **argv)
             Eigen::VectorXd motors_pos(7);
 
 
-            // static double t = 0;
-            // t += 0.01;
+            static double t = 0;
+            t += 0.001;
             // mj_data->mocap_pos[0] = 0.5 * sin(t); // x-coordinate
             // mj_data->mocap_pos[1] = 0.5 * cos(t); // y-coordinate
             // mj_data->mocap_pos[2] = 1.0;          // z-coordinate (constant)
@@ -323,8 +359,18 @@ int main(int argc, const char **argv)
 
             // int ball_2_body_id = 0;
 
+            // handCtrlTest(mj_model,mj_data,t);
 
-            // ball_2_body_id = mj_name2id(mj_model, mjOBJ_BODY, "red_ball1");
+            handCtrl(mj_model,mj_data,hand_qpos);
+            printf("hand_qpos array: ");
+            for (int i = 0; i < 24; i++) {
+                printf("%.2f ", hand_qpos[i]);
+            }
+            printf("\n");
+            
+            
+
+            
             // std::cout << "ball_2_body_id  ::" << ball_2_body_id << std::endl;
 
             // int mocap_id = mj_model->body_mocapid[ball_2_body_id];
@@ -373,7 +419,7 @@ int main(int argc, const char **argv)
             }
             else
             {
-                std::cout << "left error ::" << simTime << " " << left_angles_tested[7] << std::endl;
+                // std::cout << "left error ::" << simTime << " " << left_angles_tested[7] << std::endl;
             }
 
             pos_eul_bet << left_p_a[0], left_p_a[1], left_p_a[2], left_p_a[3],
@@ -393,7 +439,7 @@ int main(int argc, const char **argv)
             }
             else
             {
-                std::cout << "right error::" << simTime << " " << right_angles_tested[7] << std::endl;
+                // std::cout << "right error::" << simTime << " " << right_angles_tested[7] << std::endl;
             }
 
             resLeg = kinDynSolver.computeInK_Leg(fe_l_rot_des, fe_l_pos_L_des, fe_r_rot_des, fe_r_pos_L_des);

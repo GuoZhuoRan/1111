@@ -13,14 +13,22 @@ list(APPEND CMAKE_PREFIX_PATH "/opt/openrobots")
 find_package(pinocchio REQUIRED)
 find_package(jsoncpp CONFIG REQUIRED)
 find_package(quill REQUIRED)
+
+
+
+
 find_package(fmt)
 # find_package(qpOASES)
-
 get_filename_component(PARENT_DIR ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
 
 set(MuJoCo_Include_Dir ${PARENT_DIR}/mujoco-3.1.3/include)
+
 set(MuJoCo_Library_Dir ${PARENT_DIR}/mujoco-3.1.3/lib)
 set(MuJoCo_Libraries mujoco)
+set(CMAKE_INSTALL_RPATH "/usr/lib/x86_64-linux-gnu")
+
+# set(CMAKE_C_COMPILER /usr/bin/gcc-10)
+# set(CMAKE_CXX_COMPILER /usr/bin/g++-10)
 
 add_subdirectory(ThirdParties/qpOASES)
 include_directories("ThirdParties/qpOASES/include")
@@ -75,9 +83,13 @@ set(SOURCES ${C_SOURCES} ${CPP_SOURCES} ${HEADER_FILES})
 # target_link_libraries(floatControl_f ${MuJoCo_Libraries} glfw Eigen3::Eigen pinocchio::pinocchio
 #         JsonCpp::JsonCpp quill::quill fmt::fmt qpOASES )
 
-add_executable(floatControl_new_1 Demo/floatControl_new_1.cpp ${SOURCES})
+add_executable(floatControl_new_1
+    Demo/floatControl_new_1.cpp 
+    Demo/handCtrl.cpp
+    ${SOURCES})
 
 target_link_libraries(floatControl_new_1 ${MuJoCo_Libraries} glfw Eigen3::Eigen pinocchio::pinocchio
+
 # JsonCpp::JsonCpp        
 jsoncpp
          quill::quill fmt::fmt qpOASES )
